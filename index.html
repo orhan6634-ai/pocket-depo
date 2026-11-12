@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="tr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Pocket-Depo | Mobil Stok ve Sayım Asistanı</title>
+    <script type="module" crossorigin src="/pocket-depo/assets/index-BhwJbsuS.js"></script>
+    <link rel="stylesheet" crossorigin href="/pocket-depo/assets/index-BFJOna-L.css">
+  <link rel="manifest" href="/pocket-depo/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/pocket-depo/registerSW.js"></script></head>
+  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-white select-none">
+    <div id="root"></div>
+    <script>
+      // Netlify'ın sağ alt köşeye enjekte ettiği harici rozeti/çekmeceyi temizle
+      (function () {
+        function removeInjectedHud() {
+          var selectors = [
+            'script[src*="/.netlify/scripts/hud"]',
+            '[data-netlify-site-id]',
+            '[data-nf-variant]',
+            'netlify-drawer',
+            'netlify-widget',
+            'iframe[src*="app.netlify.com"]',
+            'iframe[src*="netlify.com"]'
+          ];
+          selectors.forEach(function (sel) {
+            document.querySelectorAll(sel).forEach(function (el) {
+              el.remove();
+            });
+          });
+          Array.from(document.body.children).forEach(function (el) {
+            if (el.id !== 'root' && el.tagName !== 'SCRIPT') {
+              el.style.setProperty('display', 'none', 'important');
+              el.remove();
+            }
+          });
+        }
+        removeInjectedHud();
+        var obs = new MutationObserver(removeInjectedHud);
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+      })();
+    </script>
+  </body>
+</html>

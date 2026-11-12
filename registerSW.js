@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/pocket-depo/sw.js', { scope: '/pocket-depo/' })})}
