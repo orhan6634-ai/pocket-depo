@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    -webkit-tap-highlight-color: transparent;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  body {
+    overscroll-behavior-y: none;
+    touch-action: pan-x pan-y;
+    padding-top: var(--sat);
+    padding-bottom: var(--sab);
+  }
+}
+
+/* Netlify Harici Rozet / Logo / HUD Gizleyici (Kalıcı ve Kesin) */
+netlify-drawer,
+netlify-widget,
+[data-netlify-site-id],
+[data-netlify-deploy-id],
+iframe[src*="netlify.com"],
+div[class*="netlify-"],
+#netlify-drawer {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  z-index: -9999 !important;
+}
+
+/* Sayı artırma butonları için dokunma hissi */
+.touch-press {
+  transition: transform 0.08s ease, filter 0.08s ease;
+}
+.touch-press:active {
+  transform: scale(0.96);
+  filter: brightness(0.9);
+}
+
+/* Kaydırma çubuğu gizleme (mobil temiz görünüm) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Kamera Barkod Okuyucu — Tam Ekran ve Kusursuz Yayılma */
+#interactive-barcode-reader {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  position: relative !important;
+}
+
+#interactive-barcode-reader video {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 65vh !important;
+  object-fit: cover !important;
+  border-radius: 1rem !important;
+  display: block !important;
+}
+
+/* html5-qrcode'un ekranı bölen varsayılan karartma katmanını ve beyaz köşelerini gizle */
+#interactive-barcode-reader #qr-shaded-region {
+  border-width: 0 !important;
+  opacity: 0 !important;
+  display: none !important;
+}
