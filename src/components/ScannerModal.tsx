@@ -1,27 +1,67 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { X, Flashlight, Camera, AlertCircle, RefreshCw, ArrowRight, ShieldAlert, Zap, CheckCircle2 } from 'lucide-react';
+import {
+  X,
+  Flashlight,
+  Camera,
+  AlertCircle,
+  RefreshCw,
+  ArrowRight,
+  ShieldAlert,
+  Zap,
+  CheckCircle2,
+  Package,
+  PlusCircle,
+  MinusCircle,
+  AlertTriangle
+} from 'lucide-react';
+import { db } from '../db';
+import { Product } from '../types';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
+
+export type BatchOpType = 'in' | 'out';
+
+export interface BatchItemSummary {
+  productId: number;
+  productName: string;
+  barcode: string;
+  count: number;
+  unit: string;
+}
 
 interface ScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onScanSuccess: (decodedText: string) => void;
+  isOnline?: boolean;
 }
 
-export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScanSuccess }) => {
+export const ScannerModal: React.FC<ScannerModalProps> = ({
+  isOpen,
+  onClose,
+  onScanSuccess,
+  isOnline = true
+}) => {
   const [torchOn, setTorchOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
-  // Seri Tarama Modu (Kesintisiz art arda okuma)
+
+  // Seri Tarama Modu Durumları
   const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
+  const [batchOp, setBatchOp] = useState<BatchOpType>('in');
   const [batchCount, setBatchCount] = useState<number>(0);
-  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [batchItems, setBatchItems] = useState<Record<string, BatchItemSummary>>({});
+  const [batchFeedback, setBatchFeedback] = useState<{
+    type: 'success' | 'unknown' | 'error';
+    title: string;
+    detail: string;
+  } | null>(null);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScanningRef = useRef<boolean>(false);
   const isStoppingRef = useRef<boolean>(false);
   const lastScanTimeRef = useRef<number>(0);
+  const lastScannedCodeRef = useRef<string>('');
   const containerId = 'interactive-barcode-reader';
 
   const safeStopScanner = async () => {
@@ -59,6 +99,91 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
       console.warn('onClose hatası:', e);
     }
     safeStopScanner();
+  };
+
+  // Seri Modda Okunan Barkodu Arka Planda Doğrudan İşleme Motoru
+  const handleBatchProcessBarcode = async (rawBarcode: string) => {
+    const cleanCode = rawBarcode.trim();
+    if (!cleanCode) return;
+
+    try {
+      const product = await db.products.where('barcode').equals(cleanCode).first();
+
+      if (!product || product.id === undefined) {
+        // Ürün depoda bulunamadı -> Kamera KAPANMAZ! Sesli ikaz ve geri bildirim
+        playErrorBuzzer();
+        setBatchFeedback({
+          type: 'unknown',
+          title: 'Kayıtsız Barkod!',
+          detail: `${cleanCode} sistemde tanımlı değil.`
+        });
+        setTimeout(() => setBatchFeedback(null), 2500);
+        return;
+      }
+
+      // Ürün bulundu -> Seçili operasyona göre (in/out) +1 veya -1 stok hareketi
+      const delta = batchOp === 'in' ? 1 : -1;
+      const previousStock = product.currentStock;
+      const newStock = Math.max(0, previousStock + delta);
+      const now = new Date().toISOString();
+
+      // 1. Ürün stoğunu güncelle
+      await db.products.update(product.id, {
+        currentStock: newStock,
+        lastCountDate: now,
+        updatedAt: now
+      });
+
+      // 2. Hareket kaydını logla
+      await db.movements.add({
+        productId: product.id,
+        productName: product.name,
+        barcode: product.barcode,
+        type: batchOp,
+        previousStock,
+        newStock,
+        delta,
+        timestamp: now,
+        note: `Seri Okuma (${batchOp === 'in' ? '+1' : '-1'})`,
+        isSynced: isOnline
+      });
+
+      playSuccessBeep();
+
+      // Seri sayaç ve özet güncellemesi
+      setBatchCount((prev) => prev + 1);
+      setBatchItems((prev) => {
+        const existing = prev[cleanCode];
+        const updatedCount = (existing ? existing.count : 0) + (batchOp === 'in' ? 1 : -1);
+        return {
+          ...prev,
+          [cleanCode]: {
+            productId: product.id!,
+            productName: product.name,
+            barcode: cleanCode,
+            count: updatedCount,
+            unit: product.unit
+          }
+        };
+      });
+
+      // Ekranda yeşil bildirim
+      setBatchFeedback({
+        type: 'success',
+        title: `${product.name} (${batchOp === 'in' ? '+1' : '-1'} ${product.unit})`,
+        detail: `Eski: ${previousStock} ➔ Yeni Stok: ${newStock} ${product.unit}`
+      });
+      setTimeout(() => setBatchFeedback(null), 2200);
+    } catch (err) {
+      console.error('Seri okuma işlemi sırasında hata:', err);
+      playErrorBuzzer();
+      setBatchFeedback({
+        type: 'error',
+        title: 'İşlem Başarısız',
+        detail: 'Stok güncellenirken bir hata oluştu.'
+      });
+      setTimeout(() => setBatchFeedback(null), 2500);
+    }
   };
 
   const startScanner = async () => {
@@ -106,23 +231,20 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
         },
         async (decodedText) => {
           const now = Date.now();
-          // Seri modda aynı barkodun 1.2 saniye içinde tekrar tetiklenmesini engelle
-          if (isBatchMode && now - lastScanTimeRef.current < 1200) {
-            return;
-          }
-          lastScanTimeRef.current = now;
-
-          playSuccessBeep();
           const cleanCode = decodedText.trim();
 
+          // Seri modda aynı barkodun 1.2 saniye içinde art arda tetiklenmesini önle
           if (isBatchMode) {
-            // Seri mod: Kamerayı kapatma, sayacı artır ve anlık bilgi göster
-            setBatchCount((prev) => prev + 1);
-            setLastScannedCode(cleanCode);
-            setTimeout(() => setLastScannedCode(null), 2000);
-            onScanSuccess(cleanCode);
+            if (lastScannedCodeRef.current === cleanCode && now - lastScanTimeRef.current < 1200) {
+              return;
+            }
+            lastScanTimeRef.current = now;
+            lastScannedCodeRef.current = cleanCode;
+
+            // Arka planda doğrudan stoka işle (Kamera açık kalır!)
+            await handleBatchProcessBarcode(cleanCode);
           } else {
-            // Normal mod: Kapat ve ürünü aç
+            // Normal mod: Kapat ve ana ekrana aktar
             handleClose();
             onScanSuccess(cleanCode);
           }
@@ -169,14 +291,11 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
-    playSuccessBeep();
     const code = manualCode.trim();
+    setManualCode('');
+
     if (isBatchMode) {
-      setBatchCount((prev) => prev + 1);
-      setLastScannedCode(code);
-      setTimeout(() => setLastScannedCode(null), 2000);
-      setManualCode('');
-      onScanSuccess(code);
+      handleBatchProcessBarcode(code);
     } else {
       handleClose();
       onScanSuccess(code);
@@ -191,23 +310,28 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
       <div className="flex items-center justify-between z-10 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="flex items-center gap-2 text-white">
           <Camera className="w-5 h-5 text-emerald-400" />
-          <span className="font-semibold text-sm">Barkod Okuyucu</span>
+          <span className="font-semibold text-sm">
+            {isBatchMode ? 'Seri Stok Okuyucu' : 'Barkod Okuyucu'}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Seri Okuma Aç/Kapat Butonu */}
           <button
             type="button"
-            onClick={() => setIsBatchMode(!isBatchMode)}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all active:scale-95 ${
+            onClick={() => {
+              setIsBatchMode(!isBatchMode);
+              setBatchFeedback(null);
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
               isBatchMode
-                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/20'
                 : 'bg-slate-800 text-slate-300 border-slate-700'
             }`}
             title="Seri / Kesintisiz Okuma Modu"
           >
             <Zap className={`w-3.5 h-3.5 ${isBatchMode ? 'text-slate-950 fill-current' : 'text-amber-400'}`} />
-            <span>{isBatchMode ? `Seri: ${batchCount}` : 'Seri Mod'}</span>
+            <span>{isBatchMode ? `Seri Aktif: ${batchCount}` : 'Seri Mod'}</span>
           </button>
 
           {/* Flaş */}
@@ -234,8 +358,39 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
         </div>
       </div>
 
+      {/* Seri Mod Açıkken Giriş/Çıkış Yön Seçici */}
+      {isBatchMode && (
+        <div className="z-10 mt-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-1.5 flex items-center justify-between gap-2 max-w-md mx-auto w-full">
+          <button
+            type="button"
+            onClick={() => setBatchOp('in')}
+            className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+              batchOp === 'in'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>Giriş Yap (+1)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setBatchOp('out')}
+            className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+              batchOp === 'out'
+                ? 'bg-rose-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <MinusCircle className="w-3.5 h-3.5" />
+            <span>Çıkış Yap (-1)</span>
+          </button>
+        </div>
+      )}
+
       {/* Kamera Alanı & Hedef Vizörü */}
-      <div className="relative flex-1 flex items-center justify-center my-3 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-1">
+      <div className="relative flex-1 flex items-center justify-center my-2 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-1">
         <div id={containerId} className="w-full max-w-md max-h-[65vh] rounded-2xl overflow-hidden flex items-center justify-center" />
 
         {/* Lazer Tarama Çizgisi Animasyonu */}
@@ -247,18 +402,35 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
               <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-emerald-400" />
               <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-emerald-400" />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-emerald-400" />
-              
+
               {/* Lazer Çizgisi */}
               <div className={`absolute left-2 right-2 h-0.5 shadow-[0_0_12px_#ef4444] animate-pulse top-1/2 -translate-y-1/2 ${isBatchMode ? 'bg-amber-400 shadow-[0_0_12px_#f59e0b]' : 'bg-red-500'}`} />
             </div>
           </div>
         )}
 
-        {/* Seri Modda Anlık Okundu Bildirimi */}
-        {lastScannedCode && (
-          <div className="absolute top-4 inset-x-6 bg-emerald-500 text-slate-950 font-black p-3 rounded-xl shadow-2xl flex items-center justify-center gap-2 animate-bounce z-20 text-xs">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Okundu: {lastScannedCode}</span>
+        {/* Seri Modda Anlık Okundu / Kayıtsız Bildirim Kartı */}
+        {batchFeedback && (
+          <div
+            className={`absolute top-4 inset-x-4 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce z-20 border ${
+              batchFeedback.type === 'success'
+                ? 'bg-emerald-600/95 border-emerald-400 text-white'
+                : batchFeedback.type === 'unknown'
+                ? 'bg-amber-500/95 border-amber-300 text-slate-950'
+                : 'bg-rose-600/95 border-rose-400 text-white'
+            }`}
+          >
+            {batchFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-6 h-6 shrink-0" />
+            ) : batchFeedback.type === 'unknown' ? (
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+            ) : (
+              <AlertCircle className="w-6 h-6 shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-xs truncate leading-tight">{batchFeedback.title}</div>
+              <div className="text-[11px] opacity-90 truncate mt-0.5">{batchFeedback.detail}</div>
+            </div>
           </div>
         )}
 
@@ -267,7 +439,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
           <div className="absolute inset-x-4 bg-slate-900/95 border border-red-500/40 p-5 rounded-2xl text-center shadow-2xl backdrop-blur-md">
             <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
             <p className="text-sm font-semibold text-red-200">{cameraError}</p>
-            
+
             <div className="my-3 p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl text-[11px] text-slate-300 flex items-start gap-2 text-left">
               <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <span>
@@ -315,12 +487,17 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
         )}
       </div>
 
-      {/* Alt Bilgi */}
+      {/* Alt Bilgi & Seri Mod Özeti */}
       <div className="text-center pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
         {isBatchMode ? (
-          <p className="text-xs text-amber-300 font-semibold animate-pulse">
-            ⚡ Seri Okuma Aktif: Barkodları arka arkaya okutabilirsiniz ({batchCount} adet okundu).
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-amber-300 font-bold">
+              ⚡ Seri Mod Açık: Barkodları arka arkaya okutun ({batchCount} adet okundu).
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Kayıtlı ürünler doğrudan stoka işlenir, kamera asla kapanmaz.
+            </p>
+          </div>
         ) : (
           <p className="text-xs text-slate-400">Barkodu çerçeve içine hizalayın. Anında otomatik okunacaktır.</p>
         )}

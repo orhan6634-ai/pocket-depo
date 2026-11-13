@@ -265,6 +265,7 @@ export function App() {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onScanSuccess={handleBarcodeScanned}
+        isOnline={isOnline}
       />
 
       {/* Hızlı Yeni Ürün Ekle / Düzenle Modal */}
