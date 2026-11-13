@@ -11,6 +11,7 @@ import { QuickAddModal } from './components/QuickAddModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LicenseModal } from './components/LicenseModal';
 import { DiscrepancyReportModal } from './components/DiscrepancyReportModal';
+import { BackupModal } from './components/BackupModal';
 import { Product, SyncStatus } from './types';
 import { playSuccessBeep, playErrorBuzzer } from './services/sound';
 import { networkService } from './services/network';
@@ -24,6 +25,7 @@ export function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isLicenseOpen, setIsLicenseOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [scannedBarcodeForAdd, setScannedBarcodeForAdd] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
@@ -243,6 +245,7 @@ export function App() {
             }}
             onOpenLicense={() => setIsLicenseOpen(true)}
             onOpenReportModal={() => setIsReportModalOpen(true)}
+            onOpenBackupModal={() => setIsBackupModalOpen(true)}
             onOpenScanner={() => setIsScannerOpen(true)}
           />
         )}
@@ -311,6 +314,19 @@ export function App() {
         onClose={() => setIsReportModalOpen(false)}
         products={products}
         movements={movements}
+      />
+
+      {/* Veri Güvenliği & JSON Yedekleme Modalı */}
+      <BackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        productCount={products.length}
+        movementCount={movements.length}
+        onRestoreSuccess={() => {
+          playSuccessBeep();
+          setSyncToastMessage('✓ Depo yedeği başarıyla geri yüklendi!');
+          setTimeout(() => setSyncToastMessage(null), 3500);
+        }}
       />
     </div>
   );

@@ -30,6 +30,7 @@ interface StockListProps {
   onSelectForCount: (product: Product) => void;
   onOpenLicense?: () => void;
   onOpenReportModal?: () => void;
+  onOpenBackupModal?: () => void;
   onOpenScanner?: () => void;
 }
 
@@ -40,6 +41,7 @@ export const StockList: React.FC<StockListProps> = ({
   onSelectForCount,
   onOpenLicense,
   onOpenReportModal,
+  onOpenBackupModal,
   onOpenScanner
 }) => {
   const [search, setSearch] = useState('');
@@ -269,33 +271,42 @@ export const StockList: React.FC<StockListProps> = ({
         )}
       </div>
 
-      {/* İkincil Araçlar Şeridi (Kompakt 3 Buton) */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* İkincil Araçlar Şeridi (Kompakt 4 Buton: Rapor, Yedek, Excel İndir, Excel Yükle) */}
+      <div className="grid grid-cols-4 gap-1.5">
         <button
           type="button"
           onClick={onOpenReportModal}
-          className="py-2 px-2.5 bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-teal-300 font-bold text-[11px] rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          className="py-2 px-1.5 bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-teal-300 font-bold text-[11px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all"
         >
           <FileText className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-          <span>Rapor Al</span>
+          <span>Rapor</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenBackupModal}
+          className="py-2 px-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-bold text-[11px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all"
+        >
+          <Download className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          <span>Yedek</span>
         </button>
 
         <button
           type="button"
           onClick={handleExport}
-          className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          className="py-2 px-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all"
         >
           <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Excel İndir</span>
+          <span>İndir</span>
         </button>
 
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          className="py-2 px-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all"
         >
           <Upload className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <span>Excel Yükle</span>
+          <span>Yükle</span>
         </button>
       </div>
 
