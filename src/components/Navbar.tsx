@@ -23,22 +23,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isPro = isProLicense();
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3">
-      <div className="max-w-md mx-auto flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 px-4 pt-[calc(0.9rem+env(safe-area-inset-top,0px))] pb-3.5 shadow-sm">
+      <div className="max-w-md mx-auto flex items-center justify-between gap-2">
         {/* Sol Alan: Logo & İsim */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
             <Package className="w-5 h-5 text-white" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="font-bold text-base text-white tracking-tight leading-none">
+              <h1 className="font-bold text-[15px] text-white tracking-tight leading-none truncate">
                 Pocket-Depo
               </h1>
               <button
                 type="button"
                 onClick={onOpenLicense}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 border transition-all active:scale-95 ${
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 border transition-all active:scale-95 shrink-0 ${
                   isPro
                     ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
@@ -49,22 +49,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{isPro ? 'PRO' : 'v1.0'}</span>
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">Mobil Sayım & Stok</p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium leading-none">Mobil Sayım & Stok</p>
           </div>
         </div>
 
         {/* Sağ Alan: Destek Butonu + Rehber İkonu + Akıllı Durum Rozeti */}
-        <div className="flex items-center gap-1.5">
-          {/* Destek & Mesaj Butonu - Açık, Belirgin ve Yazılı */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Destek & Mesaj Butonu - Kompakt ve Şık İkon */}
           {onOpenFeedback && (
             <button
               type="button"
               onClick={onOpenFeedback}
-              className="min-h-[36px] px-2.5 rounded-xl border border-teal-500/40 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
-              title="Geliştiriciye Mesaj / Destek Talebi Gönder"
+              className="w-9 h-9 rounded-xl border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 flex items-center justify-center active:scale-95 transition-all shadow-sm shrink-0"
+              title="Geliştiriciye Mesaj / Destek Talebi"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-teal-300 shrink-0" />
-              <span className="text-[11px] font-bold">Mesaj</span>
+              <MessageSquare className="w-4 h-4 text-teal-300" />
             </button>
           )}
 
@@ -72,26 +71,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={onOpenGuide}
-            className="min-h-[36px] w-8 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white hover:border-slate-600 flex items-center justify-center active:scale-95 transition-all shrink-0"
+            className="w-9 h-9 rounded-xl border border-slate-700/80 bg-slate-800/60 text-slate-300 hover:text-white hover:border-slate-600 flex items-center justify-center active:scale-95 transition-all shrink-0"
             title="Kullanım Rehberi"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-slate-300" />
+            <HelpCircle className="w-4 h-4 text-slate-300" />
           </button>
 
-          {/* AKILLI DURUM BUTONU: Çevrimiçi / Çevrimdışı / Eşitleme TEK BUTONDA BİRLEŞTİRİLDİ */}
+          {/* AKILLI DURUM BUTONU: Çevrimiçi / Çevrimdışı / Eşitleme */}
           <button
             type="button"
             onClick={() => {
               if (syncStatus.isOnline && syncStatus.pendingCount > 0) {
-                // Bekleyen sayım varsa tıklandığında anında eşitle
                 onTriggerSync();
               } else {
-                // Diğer durumlarda modu değiştir (Çevrimiçi / Çevrimdışı)
                 onToggleOnlineOffline();
               }
             }}
             disabled={syncStatus.isSyncing}
-            className={`min-h-[36px] px-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm select-none ${
+            className={`h-9 px-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm select-none shrink-0 ${
               syncStatus.isSyncing
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 cursor-wait'
                 : !syncStatus.isOnline
@@ -132,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             ) : (
               <>
-                <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0"></span>
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0 shadow-sm shadow-emerald-400/50"></span>
                 <Wifi className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="text-[11px]">Çevrimiçi</span>
               </>

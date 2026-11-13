@@ -218,7 +218,7 @@ export function App() {
       )}
 
       {/* Ana İçerik Alanı */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 pb-28">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-3.5 pb-28">
         {activeTab === 'count' && (
           <CountMode
             products={products}
