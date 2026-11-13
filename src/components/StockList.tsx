@@ -5,6 +5,8 @@ import {
   Download,
   Upload,
   AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
   MapPin,
   ScanBarcode,
   Crown,
@@ -51,7 +53,16 @@ export const StockList: React.FC<StockListProps> = ({
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [alertModal, setAlertModal] = useState<{
+    title: string;
+    message: string;
+    type?: 'warning' | 'info' | 'error';
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showAlert = (title: string, message: string, type: 'warning' | 'info' | 'error' = 'warning') => {
+    setAlertModal({ title, message, type });
+  };
 
   // Kategorileri dinamik çıkar
   const categories = ['all', ...Array.from(new Set(products.map((p) => p.category)))];
@@ -79,7 +90,11 @@ export const StockList: React.FC<StockListProps> = ({
 
   const handleExportClick = () => {
     if (products.length === 0) {
-      alert('Deponuzda henüz ürün bulunmuyor. İndirmek için önce ürün ekleyin veya Excel dosyanızı yükleyin.');
+      showAlert(
+        'Deponuz Henüz Boş',
+        'İndirilecek kayıtlı ürün bulunmuyor. Lütfen önce "Yükle" butonundan Excel listenizi içeri aktarın veya "+ Yeni Ürün Ekle" ile ürün tanımlayın.',
+        'warning'
+      );
       return;
     }
     setIsExportModalOpen(true);
@@ -95,7 +110,7 @@ export const StockList: React.FC<StockListProps> = ({
         setTimeout(() => setImportStatus(null), 5000);
       }
     } catch {
-      alert('Excel dosyası indirilirken bir sorun oluştu.');
+      showAlert('İndirme Hatası', 'Excel dosyası indirilirken bir sorun oluştu.', 'error');
     }
   };
 
@@ -109,7 +124,7 @@ export const StockList: React.FC<StockListProps> = ({
         setTimeout(() => setImportStatus(null), 5000);
       }
     } catch {
-      alert('CSV dosyası indirilirken bir sorun oluştu.');
+      showAlert('İndirme Hatası', 'CSV dosyası indirilirken bir sorun oluştu.', 'error');
     }
   };
 
@@ -130,7 +145,7 @@ export const StockList: React.FC<StockListProps> = ({
       setTimeout(() => setImportStatus(null), 5000);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch {
-      alert('CSV/Excel dosyası içe aktarılırken hata oluştu.');
+      showAlert('Yükleme Hatası', 'CSV/Excel dosyası içe aktarılırken hata oluştu. Dosya formatını kontrol edin.', 'error');
     }
   };
 
@@ -143,7 +158,7 @@ export const StockList: React.FC<StockListProps> = ({
       setProductToDelete(null);
     } catch {
       playErrorBuzzer();
-      alert('Ürün silinirken bir hata oluştu.');
+      showAlert('Silme Hatası', 'Ürün silinirken bir hata oluştu.', 'error');
     }
   };
 
@@ -156,7 +171,7 @@ export const StockList: React.FC<StockListProps> = ({
       setShowResetConfirm(false);
     } catch {
       playErrorBuzzer();
-      alert('Depo sıfırlanırken hata oluştu.');
+      showAlert('Hata', 'Depo sıfırlanırken hata oluştu.', 'error');
     }
   };
 
@@ -166,7 +181,7 @@ export const StockList: React.FC<StockListProps> = ({
       await seedInitialData();
       playSuccessBeep();
     } catch {
-      alert('Örnek veriler yüklenemedi.');
+      showAlert('Hata', 'Örnek veriler yüklenemedi.', 'error');
     }
   };
 
@@ -605,6 +620,43 @@ export const StockList: React.FC<StockListProps> = ({
                 className="w-full py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs rounded-xl transition-all"
               >
                 Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Şık Özel Bilgilendirme / Uyarı Modalı (Android Tarayıcı alert'ini engeller) */}
+      {alertModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in select-none">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  alertModal.type === 'error'
+                    ? 'bg-rose-500/20 border border-rose-500/30 text-rose-400'
+                    : 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                }`}
+              >
+                {alertModal.type === 'error' ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-white text-sm">{alertModal.title}</h4>
+                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{alertModal.message}</p>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setAlertModal(null)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+              >
+                Tamam
               </button>
             </div>
           </div>
