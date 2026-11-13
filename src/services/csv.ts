@@ -112,6 +112,19 @@ export async function exportProductsToXLSX(): Promise<{ success: boolean; count:
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
+
+  // Sütun genişliklerini içeriğe göre ferah, okunaklı ve nizami ayarla (daralmayı ve sıkışmayı önler)
+  worksheet['!cols'] = [
+    { wch: 18 }, // Barkod
+    { wch: 34 }, // Ürün Adı
+    { wch: 22 }, // Kategori
+    { wch: 16 }, // Raf Konumu
+    { wch: 14 }, // Mevcut Stok
+    { wch: 12 }, // Birim
+    { wch: 14 }, // Kritik Stok
+    { wch: 24 }, // Son Sayım Tarihi
+  ];
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Stok Listesi');
   
