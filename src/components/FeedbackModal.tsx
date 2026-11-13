@@ -9,13 +9,18 @@ import {
   AlertTriangle,
   HelpCircle,
   MessageCircleReply,
-  ShieldCheck
+  ShieldCheck,
+  CornerDownRight,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import {
   FeedbackMessage,
   getLocalMessages,
   sendFeedbackMessage,
-  getOrCreateDeviceId
+  getOrCreateDeviceId,
+  replyToFeedbackMessage,
+  deleteFeedbackMessage
 } from '../services/feedback';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
 
@@ -32,15 +37,46 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
   const [messages, setMessages] = useState<FeedbackMessage[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setMessages(getLocalMessages());
       setStatusMessage(null);
+      setReplyingToId(null);
+      setReplyText('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleStartReply = (msg: FeedbackMessage) => {
+    setReplyingToId(msg.id);
+    setReplyText(msg.reply || '');
+  };
+
+  const handleSaveReply = (msgId: string) => {
+    if (!replyText.trim()) return;
+    const res = replyToFeedbackMessage(msgId, replyText);
+    if (res.success) {
+      playSuccessBeep();
+      setMessages(getLocalMessages());
+      setReplyingToId(null);
+      setReplyText('');
+    } else {
+      playErrorBuzzer();
+      alert(res.message);
+    }
+  };
+
+  const handleDeleteMsg = (msgId: string) => {
+    if (window.confirm('Bu mesajı silmek istediğinize emin misiniz?')) {
+      deleteFeedbackMessage(msgId);
+      setMessages(getLocalMessages());
+      playSuccessBeep();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,16 +275,91 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
                     {/* Yönetici Yanıtı Varsa */}
                     {m.reply ? (
                       <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 space-y-1 animate-fade-in">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Geliştirici Ekip Yanıtı:</span>
+                        <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Geliştirici / Yönetici Yanıtı:</span>
+                          </div>
+                          {m.repliedAt && (
+                            <span className="text-[10px] text-slate-500 font-normal">
+                              {new Date(m.repliedAt).toLocaleDateString('tr-TR')}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-emerald-100/90 leading-relaxed">{m.reply}</p>
+                        <p className="text-xs text-emerald-100/90 leading-relaxed whitespace-pre-wrap">{m.reply}</p>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-[10px] text-amber-400/90 font-medium pt-1">
                         <Clock className="w-3 h-3 text-amber-400" />
-                        <span>İletildi, geliştirici incelemesi bekleniyor...</span>
+                        <span>İletildi, inceleme / yanıt bekleniyor...</span>
+                      </div>
+                    )}
+
+                    {/* Yanıt Yazma Formu (Aktifse) */}
+                    {replyingToId === m.id ? (
+                      <div className="p-3 rounded-xl bg-slate-900 border border-teal-500/40 space-y-2 mt-2 animate-fade-in">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-teal-300">
+                          <CornerDownRight className="w-3.5 h-3.5" />
+                          <span>Mesaja Cevap Ver:</span>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Müşteriye / Kullanıcıya iletilecek cevabınızı yazın..."
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none resize-none leading-relaxed"
+                          autoFocus
+                        />
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingToId(null);
+                              setReplyText('');
+                            }}
+                            className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-[11px] font-medium"
+                          >
+                            Vazgeç
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveReply(m.id)}
+                            className="py-1.5 px-3 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-md shadow-teal-500/20"
+                          >
+                            <Send className="w-3 h-3" />
+                            <span>Cevabı Kaydet</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Yanıt Butonları Çubuğu */
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => handleStartReply(m)}
+                          className="text-[11px] font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1 py-1 px-2 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 transition-all active:scale-95"
+                        >
+                          {m.reply ? (
+                            <>
+                              <Edit3 className="w-3 h-3" />
+                              <span>Cevabı Düzenle</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircleReply className="w-3.5 h-3.5" />
+                              <span>Cevap Ver / Yanıtla</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMsg(m.id)}
+                          className="text-slate-500 hover:text-rose-400 p-1 rounded-lg hover:bg-rose-500/10 transition-colors"
+                          title="Mesajı Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     )}
                   </div>

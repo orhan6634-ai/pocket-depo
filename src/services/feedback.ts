@@ -104,3 +104,39 @@ export async function sendFeedbackMessage(
     newMessage: newMsg
   };
 }
+
+/**
+ * Bir mesaja yönetici/geliştirici yanıtı ekler veya günceller
+ */
+export function replyToFeedbackMessage(
+  messageId: string,
+  replyText: string
+): { success: boolean; message: string } {
+  const cleanReply = replyText.trim();
+  if (!cleanReply) {
+    return { success: false, message: 'Lütfen bir yanıt metni girin.' };
+  }
+
+  const list = getLocalMessages();
+  const index = list.findIndex((m) => m.id === messageId);
+  if (index === -1) {
+    return { success: false, message: 'Mesaj bulunamadı.' };
+  }
+
+  list[index].reply = cleanReply;
+  list[index].status = 'answered';
+  list[index].repliedAt = new Date().toISOString();
+
+  saveLocalMessages(list);
+  return { success: true, message: 'Yanıtınız başarıyla kaydedildi.' };
+}
+
+/**
+ * İlgili mesajı listeden kaldırır
+ */
+export function deleteFeedbackMessage(messageId: string): boolean {
+  const list = getLocalMessages();
+  const filtered = list.filter((m) => m.id !== messageId);
+  saveLocalMessages(filtered);
+  return true;
+}
