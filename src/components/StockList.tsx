@@ -117,25 +117,27 @@ export const StockList: React.FC<StockListProps> = ({
 
   const handleExportExcel = async () => {
     try {
-      setExportNotice('Köprü: ' + (typeof (window as any).ReactNativeWebView));
       const res = await exportProductsToXLSX();
       if (res.success) {
         playSuccessBeep();
+        setExportNotice('Dosya hazırlandı, kaydetme / paylaşma penceresi açıldı.');
       }
-    } catch {
-      showAlert('İndirme Hatası', 'Excel dosyası indirilirken bir sorun oluştu.', 'error');
+    } catch (err: any) {
+      setExportNotice('Hata: ' + (err?.message || String(err)));
+      showAlert('İndirme Hatası', err?.message || 'Excel dosyası aktarılırken bir sorun oluştu.', 'error');
     }
   };
 
   const handleExportCSV = async () => {
     try {
-      setExportNotice('Köprü: ' + (typeof (window as any).ReactNativeWebView));
       const res = await exportProductsToCSV();
       if (res.success) {
         playSuccessBeep();
+        setExportNotice('Dosya hazırlandı, kaydetme / paylaşma penceresi açıldı.');
       }
-    } catch {
-      showAlert('İndirme Hatası', 'CSV dosyası indirilirken bir sorun oluştu.', 'error');
+    } catch (err: any) {
+      setExportNotice('Hata: ' + (err?.message || String(err)));
+      showAlert('İndirme Hatası', err?.message || 'CSV dosyası aktarılırken bir sorun oluştu.', 'error');
     }
   };
 

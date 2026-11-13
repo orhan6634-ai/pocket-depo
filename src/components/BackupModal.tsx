@@ -45,18 +45,18 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   const handleDownloadBackup = async () => {
     try {
       setIsProcessing(true);
-      await exportDatabaseBackup();
+      const res = await exportDatabaseBackup();
       playSuccessBeep();
       setStatusMessage({
         type: 'success',
-        text: 'Depo yedeği (.json) başarıyla cihazınıza indirildi.'
+        text: res.message
       });
-      setTimeout(() => setStatusMessage(null), 3500);
-    } catch {
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
       playErrorBuzzer();
       setStatusMessage({
         type: 'error',
-        text: 'Yedek alınırken bir hata oluştu.'
+        text: 'Hata: ' + (err?.message || 'Yedek alınırken bir hata oluştu.')
       });
     } finally {
       setIsProcessing(false);

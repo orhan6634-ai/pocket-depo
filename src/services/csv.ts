@@ -68,8 +68,9 @@ export async function exportProductsToCSV(): Promise<{ success: boolean; count: 
         })
       );
       return { success: true, count: products.length };
-    } catch (e) {
+    } catch (e: any) {
       console.warn('ReactNativeWebView postMessage hatası:', e);
+      throw new Error('postMessage hatası: ' + (e?.message || String(e)));
     }
   }
 
@@ -130,8 +131,9 @@ export async function exportProductsToXLSX(): Promise<{ success: boolean; count:
         })
       );
       return { success: true, count: products.length };
-    } catch (e) {
+    } catch (e: any) {
       console.warn('ReactNativeWebView postMessage hatası:', e);
+      throw new Error('postMessage hatası: ' + (e?.message || String(e)));
     }
   }
 

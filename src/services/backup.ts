@@ -18,10 +18,20 @@ export interface RestoreResult {
   movementsRestored: number;
 }
 
+function utf8ToBase64(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 /**
  * Tüm veritabanını (ürünler ve hareketler) şifreli/yapılandırılmış JSON yedeği olarak indirir.
  */
-export async function exportDatabaseBackup(): Promise<void> {
+export async function exportDatabaseBackup(): Promise<{ success: boolean; message: string }> {
   const products = await db.products.toArray();
   const movements = await db.movements.toArray();
 
@@ -36,17 +46,40 @@ export async function exportDatabaseBackup(): Promise<void> {
   };
 
   const jsonStr = JSON.stringify(backup, null, 2);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const fileName = `pocket-depo-yedek_${dateStr}.json`;
+
+  // React Native WebView Köprüsü (APK içinde Android yerel dosya paylaşım ve kaydetme)
+  if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+    try {
+      const b64 = utf8ToBase64(jsonStr);
+      (window as any).ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'DOWNLOAD_FILE',
+          filename: fileName,
+          base64: b64,
+          mimeType: 'application/json'
+        })
+      );
+      return { success: true, message: 'Yedek dosyası hazırlandı, kaydetme / paylaşma penceresi açıldı.' };
+    } catch (e: any) {
+      console.warn('ReactNativeWebView backup postMessage hatası:', e);
+      throw new Error('Yerel paylaşım köprüsü hatası: ' + (e?.message || String(e)));
+    }
+  }
+
   const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  const dateStr = new Date().toISOString().slice(0, 10);
-  link.setAttribute('download', `pocket-depo-yedek_${dateStr}.json`);
+  link.setAttribute('download', fileName);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+
+  return { success: true, message: 'Depo yedeği (.json) başarıyla cihazınıza indirildi.' };
 }
 
 /**
