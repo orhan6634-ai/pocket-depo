@@ -55,6 +55,24 @@ export async function exportProductsToCSV(): Promise<{ success: boolean; count: 
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `pocket-depo-stok-listesi_${dateStr}.csv`;
 
+  // 0. React Native WebView Köprüsü (APK içinde Android yerel dosya paylaşım ve kaydetme)
+  if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+    try {
+      const csvBase64 = btoa(unescape(encodeURIComponent(csvContent)));
+      (window as any).ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'DOWNLOAD_FILE',
+          filename: fileName,
+          base64: csvBase64,
+          mimeType: 'text/csv'
+        })
+      );
+      return { success: true, count: products.length };
+    } catch (e) {
+      console.warn('ReactNativeWebView postMessage hatası:', e);
+    }
+  }
+
   // 1. Data URI yöntemi (Android WebView için en güvenilir yöntem)
   const encodedUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
   triggerDownloadViaLink(encodedUri, fileName);
@@ -98,9 +116,26 @@ export async function exportProductsToXLSX(): Promise<{ success: boolean; count:
   
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `pocket-depo-stok-listesi_${dateStr}.xlsx`;
-  
-  // 1. Base64 Data URI (Android WebView'de dosya indirmeyi başlatan en garantili yöntem)
   const b64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+
+  // 0. React Native WebView Köprüsü (APK içinde Android yerel dosya paylaşım ve kaydetme)
+  if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+    try {
+      (window as any).ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'DOWNLOAD_FILE',
+          filename: fileName,
+          base64: b64,
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        })
+      );
+      return { success: true, count: products.length };
+    } catch (e) {
+      console.warn('ReactNativeWebView postMessage hatası:', e);
+    }
+  }
+
+  // 1. Base64 Data URI (Android WebView'de dosya indirmeyi başlatan en garantili yöntem)
   const dataUri = `data:application/octet-stream;base64,${b64}`;
   triggerDownloadViaLink(dataUri, fileName);
 
