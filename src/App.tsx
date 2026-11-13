@@ -12,6 +12,7 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { LicenseModal } from './components/LicenseModal';
 import { DiscrepancyReportModal } from './components/DiscrepancyReportModal';
 import { BackupModal } from './components/BackupModal';
+import { FeedbackModal } from './components/FeedbackModal';
 import { Product, SyncStatus } from './types';
 import { playSuccessBeep, playErrorBuzzer } from './services/sound';
 import { networkService } from './services/network';
@@ -26,6 +27,7 @@ export function App() {
   const [isLicenseOpen, setIsLicenseOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [scannedBarcodeForAdd, setScannedBarcodeForAdd] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
@@ -180,6 +182,7 @@ export function App() {
         onToggleOnlineOffline={handleToggleOnlineOffline}
         onOpenGuide={() => setIsGuideOpen(true)}
         onOpenLicense={() => setIsLicenseOpen(true)}
+        onOpenFeedback={() => setIsFeedbackModalOpen(true)}
       />
 
       {/* Tost Bildirimi */}
@@ -327,6 +330,12 @@ export function App() {
           setSyncToastMessage('✓ Depo yedeği başarıyla geri yüklendi!');
           setTimeout(() => setSyncToastMessage(null), 3500);
         }}
+      />
+
+      {/* Anonim Destek & Geri Bildirim Modalı */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
       />
     </div>
   );

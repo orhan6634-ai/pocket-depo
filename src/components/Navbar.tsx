@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Wifi, WifiOff, RefreshCw, HelpCircle, Crown, Check } from 'lucide-react';
+import { Package, Wifi, WifiOff, RefreshCw, HelpCircle, Crown, Check, MessageSquare } from 'lucide-react';
 import { SyncStatus } from '../types';
 import { isProLicense } from '../services/license';
 
@@ -9,6 +9,7 @@ interface NavbarProps {
   onToggleOnlineOffline: () => void;
   onOpenGuide: () => void;
   onOpenLicense: () => void;
+  onOpenFeedback?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -16,7 +17,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTriggerSync,
   onToggleOnlineOffline,
   onOpenGuide,
-  onOpenLicense
+  onOpenLicense,
+  onOpenFeedback
 }) => {
   const isPro = isProLicense();
 
@@ -51,8 +53,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Sağ Alan: AKILLI TEK DURUM VE SENKRONİZASYON ROZETİ (Gereksiz butonlar kaldırıldı) */}
+        {/* Sağ Alan: Destek İkonu + Rehber İkonu + Akıllı Durum Rozeti */}
         <div className="flex items-center gap-2">
+          {/* Destek & Mesajlaşma İkonu */}
+          {onOpenFeedback && (
+            <button
+              type="button"
+              onClick={onOpenFeedback}
+              className="w-8 h-8 rounded-xl border border-slate-700 bg-slate-800/80 text-teal-400 hover:text-white flex items-center justify-center active:scale-95 transition-all"
+              title="Destek & Mesaj Gönder"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Rehber İkonu */}
           <button
             type="button"
