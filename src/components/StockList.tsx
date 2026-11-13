@@ -120,7 +120,7 @@ export const StockList: React.FC<StockListProps> = ({
       const res = await exportProductsToXLSX();
       if (res.success) {
         playSuccessBeep();
-        setExportNotice('✅ Excel (.xlsx) dosyanız cihazınıza aktarıldı! Telefonunuzun üst bildirim çubuğunu ve "İndirilenler" (Downloads) klasörünü kontrol edin.');
+        setExportNotice('İndirme / Paylaşma komutu verildi. Eğer telefonunuzda otomatik kayıt penceresi açılmadıysa yeni v1.0.3 APK yüklü olmayabilir; aşağıdaki WhatsApp ile Gönder seçeneğini kullanabilirsiniz.');
       }
     } catch {
       showAlert('İndirme Hatası', 'Excel dosyası indirilirken bir sorun oluştu.', 'error');
@@ -132,7 +132,7 @@ export const StockList: React.FC<StockListProps> = ({
       const res = await exportProductsToCSV();
       if (res.success) {
         playSuccessBeep();
-        setExportNotice('✅ CSV dosyanız cihazınıza aktarıldı! Telefonunuzun üst bildirim çubuğunu ve "İndirilenler" klasörünü kontrol edin.');
+        setExportNotice('İndirme / Paylaşma komutu verildi. Eğer otomatik pencere açılmadıysa aşağıdaki WhatsApp veya Kopyala seçeneklerini kullanabilirsiniz.');
       }
     } catch {
       showAlert('İndirme Hatası', 'CSV dosyası indirilirken bir sorun oluştu.', 'error');
