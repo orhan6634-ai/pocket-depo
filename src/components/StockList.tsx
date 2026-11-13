@@ -19,7 +19,9 @@ import {
   Camera,
   Share2,
   Copy,
-  Check
+  Check,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { Product } from '../types';
 import { db, seedInitialData } from '../db';
@@ -684,6 +686,24 @@ export const StockList: React.FC<StockListProps> = ({
                     <div className="text-[10px] text-slate-400">Telefonda Excel / E-Tablolar'a yapıştırın</div>
                   </div>
                 </div>
+              </button>
+
+              {/* 5. Tarayıcıda Doğrudan İndir (Chrome) */}
+              <button
+                type="button"
+                onClick={() => {
+                  window.open('https://orhan6634-ai.github.io/pocket-depo/', '_blank');
+                }}
+                className="w-full py-2 px-3.5 bg-blue-500/10 hover:bg-blue-500/20 active:scale-[0.98] text-blue-300 font-bold text-xs rounded-xl flex items-center justify-between border border-blue-500/30 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Globe className="w-4 h-4 text-blue-400" />
+                  <div className="text-left">
+                    <div className="font-bold">Chrome Tarayıcısında Aç & İndir</div>
+                    <div className="text-[10px] text-blue-200/70">Android İndirilenler klasörüne doğrudan kaydeder</div>
+                  </div>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
               </button>
             </div>
 
