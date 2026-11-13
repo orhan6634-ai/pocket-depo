@@ -53,17 +53,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Sağ Alan: Destek İkonu + Rehber İkonu + Akıllı Durum Rozeti */}
-        <div className="flex items-center gap-2">
-          {/* Destek & Mesajlaşma İkonu */}
+        {/* Sağ Alan: Destek Butonu + Rehber İkonu + Akıllı Durum Rozeti */}
+        <div className="flex items-center gap-1.5">
+          {/* Destek & Mesaj Butonu - Açık, Belirgin ve Yazılı */}
           {onOpenFeedback && (
             <button
               type="button"
               onClick={onOpenFeedback}
-              className="w-8 h-8 rounded-xl border border-slate-700 bg-slate-800/80 text-teal-400 hover:text-white flex items-center justify-center active:scale-95 transition-all"
-              title="Destek & Mesaj Gönder"
+              className="min-h-[36px] px-2.5 rounded-xl border border-teal-500/40 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
+              title="Geliştiriciye Mesaj / Destek Talebi Gönder"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+              <span className="text-[11px] font-bold">Mesaj</span>
             </button>
           )}
 
@@ -71,10 +72,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={onOpenGuide}
-            className="w-8 h-8 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-400 hover:text-white flex items-center justify-center active:scale-95 transition-all"
+            className="min-h-[36px] w-8 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white hover:border-slate-600 flex items-center justify-center active:scale-95 transition-all shrink-0"
             title="Kullanım Rehberi"
           >
-            <HelpCircle className="w-4 h-4 text-slate-300" />
+            <HelpCircle className="w-3.5 h-3.5 text-slate-300" />
           </button>
 
           {/* AKILLI DURUM BUTONU: Çevrimiçi / Çevrimdışı / Eşitleme TEK BUTONDA BİRLEŞTİRİLDİ */}
@@ -90,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }
             }}
             disabled={syncStatus.isSyncing}
-            className={`min-h-[38px] px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm select-none ${
+            className={`min-h-[36px] px-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm select-none ${
               syncStatus.isSyncing
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 cursor-wait'
                 : !syncStatus.isOnline

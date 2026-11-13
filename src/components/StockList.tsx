@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Product } from '../types';
 import { db, seedInitialData } from '../db';
-import { exportProductsToCSV, importProductsFromCSV } from '../services/csv';
+import { exportProductsToCSV, exportProductsToXLSX, importProductsFromCSV } from '../services/csv';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
 import { isProLicense, getTrialInfo } from '../services/license';
 import { requestNotificationPermission } from '../services/notification';
@@ -50,6 +50,7 @@ export const StockList: React.FC<StockListProps> = ({
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Kategorileri dinamik çıkar
@@ -76,9 +77,40 @@ export const StockList: React.FC<StockListProps> = ({
   const isPro = isProLicense();
   const trial = getTrialInfo();
 
-  const handleExport = async () => {
-    await exportProductsToCSV();
-    playSuccessBeep();
+  const handleExportClick = () => {
+    if (products.length === 0) {
+      alert('Deponuzda henüz ürün bulunmuyor. İndirmek için önce ürün ekleyin veya Excel dosyanızı yükleyin.');
+      return;
+    }
+    setIsExportModalOpen(true);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const res = await exportProductsToXLSX();
+      if (res.success) {
+        playSuccessBeep();
+        setIsExportModalOpen(false);
+        setImportStatus(res.shared ? 'Excel dosyanız paylaşım/kaydet menüsüne aktarıldı.' : 'Excel dosyası (.xlsx) başarıyla indirildi.');
+        setTimeout(() => setImportStatus(null), 5000);
+      }
+    } catch {
+      alert('Excel dosyası indirilirken bir sorun oluştu.');
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const res = await exportProductsToCSV();
+      if (res.success) {
+        playSuccessBeep();
+        setIsExportModalOpen(false);
+        setImportStatus(res.shared ? 'CSV dosyanız paylaşım/kaydet menüsüne aktarıldı.' : 'CSV dosyası (.csv) başarıyla indirildi.');
+        setTimeout(() => setImportStatus(null), 5000);
+      }
+    } catch {
+      alert('CSV dosyası indirilirken bir sorun oluştu.');
+    }
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,8 +325,9 @@ export const StockList: React.FC<StockListProps> = ({
 
         <button
           type="button"
-          onClick={handleExport}
+          onClick={handleExportClick}
           className="py-2 px-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all"
+          title="Excel veya CSV Olarak İndir"
         >
           <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>İndir</span>
@@ -344,56 +377,16 @@ export const StockList: React.FC<StockListProps> = ({
       {/* Ürün Listesi veya Boş Depo Karşılama Ekranı */}
       <div className="space-y-2">
         {products.length === 0 ? (
-          /* TEMİZ VE BOŞ DEPO KARŞILAMA EKRANI */
-          <div className="p-6 text-center bg-slate-900/60 border border-slate-800/80 rounded-2xl space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
+          /* TEMİZ VE SADE BOŞ DEPO KARŞILAMA ALANI */
+          <div className="py-12 px-6 text-center bg-slate-900/40 border border-slate-800/60 rounded-2xl flex flex-col items-center justify-center space-y-3">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
               <PackageOpen className="w-8 h-8" />
             </div>
             <div>
               <h3 className="font-bold text-white text-base">Deponuz Henüz Boş</h3>
               <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                Kendi ürünlerinizi hemen ekleyebilir, kamerayla barkod okutabilir veya test için örnek verileri yükleyebilirsiniz.
+                Yukarıdaki butonları kullanarak yeni ürün ekleyebilir veya Excel listenizi yükleyebilirsiniz.
               </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2.5 max-w-xs mx-auto pt-2">
-              <button
-                type="button"
-                onClick={onOpenAddModal}
-                className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>İlk Ürünü Elle Tanımla</span>
-              </button>
-
-              {onOpenScanner && (
-                <button
-                  type="button"
-                  onClick={onOpenScanner}
-                  className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-                >
-                  <Camera className="w-4 h-4 text-emerald-400" />
-                  <span>Kamerayla Barkod Tara</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <Upload className="w-4 h-4 text-blue-400" />
-                <span>Excel veya CSV'den Toplu Yükle</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLoadDemoData}
-                className="py-2 px-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 font-medium text-[11px] rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all mt-1"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Örnek Verileri Yükle (Test Et)</span>
-              </button>
             </div>
           </div>
         ) : filtered.length === 0 ? (
@@ -554,6 +547,64 @@ export const StockList: React.FC<StockListProps> = ({
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-500/20"
               >
                 Depoyu Temizle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* İndirme / Dışa Aktarma Seçenekleri Modalı */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <Download className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Stok Listesini İndir / Paylaş</h4>
+                <p className="text-xs text-slate-400 mt-0.5">{products.length} kayıtlı ürün dışa aktarılacak</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs rounded-xl flex items-center justify-between shadow-lg shadow-emerald-500/20 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-emerald-200" />
+                  <div className="text-left">
+                    <div className="font-bold text-white">Excel Olarak İndir (.xlsx)</div>
+                    <div className="text-[10px] text-emerald-100/80">Microsoft Excel & Google E-Tablolar</div>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-700/80 px-2 py-0.5 rounded font-bold">Önerilen</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-slate-200 font-bold text-xs rounded-xl flex items-center justify-between border border-slate-700 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Download className="w-4 h-4 text-slate-400" />
+                  <div className="text-left">
+                    <div className="font-bold">CSV Olarak İndir (.csv)</div>
+                    <div className="text-[10px] text-slate-400">Virgüllü düz metin formatı</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(false)}
+                className="w-full py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs rounded-xl transition-all"
+              >
+                Kapat
               </button>
             </div>
           </div>

@@ -4,10 +4,61 @@ import { Product, UnitType } from '../types';
 import { canAddMoreProducts, getTrialInfo } from './license';
 
 /**
- * Tüm ürünleri hem CSV hem de Excel formatında dışa aktarma yeteneği
+ * Dosyayı mobil Web Share API (Android paylaşım/kaydet menüsü) veya klasik web indirme ile dışa aktarır
  */
-export async function exportProductsToCSV(): Promise<void> {
+async function downloadOrShareFile(
+  blob: Blob,
+  fileName: string,
+  mimeType: string
+): Promise<{ success: boolean; shared?: boolean }> {
+  // 1. Mobil cihazlar ve Android WebView için Web Share API kontrolü
+  if (typeof navigator !== 'undefined' && 'canShare' in navigator && 'share' in navigator) {
+    try {
+      const file = new File([blob], fileName, { type: mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Pocket-Depo Stok Listesi',
+          text: `Pocket-Depo: ${fileName}`
+        });
+        return { success: true, shared: true };
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        // Kullanıcı paylaşım penceresini bilerek kapattı
+        return { success: true, shared: true };
+      }
+      console.warn('Web Share başarısız, klasik tarayıcı indirmesine geçiliyor:', err);
+    }
+  }
+
+  // 2. Klasik Web İndirme Fallback (Blob Object URL)
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return { success: true, shared: false };
+  } catch (err) {
+    console.error('Klasik indirme başarısız:', err);
+    throw err;
+  }
+}
+
+/**
+ * Tüm ürünleri CSV formatında dışa aktarma yeteneği
+ */
+export async function exportProductsToCSV(): Promise<{ success: boolean; count: number; shared?: boolean }> {
   const products = await db.products.toArray();
+  if (products.length === 0) {
+    return { success: false, count: 0 };
+  }
+
   const headers = ['Barkod', 'Ürün Adı', 'Kategori', 'Raf Konumu', 'Mevcut Stok', 'Birim', 'Kritik Stok', 'Son Sayım Tarihi'];
   
   const rows = products.map((p) => [
@@ -23,20 +74,22 @@ export async function exportProductsToCSV(): Promise<void> {
 
   const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
   const dateStr = new Date().toISOString().slice(0, 10);
-  link.setAttribute('download', `pocket-depo-stok-listesi_${dateStr}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const fileName = `pocket-depo-stok-listesi_${dateStr}.csv`;
+
+  const result = await downloadOrShareFile(blob, fileName, 'text/csv;charset=utf-8;');
+  return { success: result.success, count: products.length, shared: result.shared };
 }
 
-export async function exportProductsToXLSX(): Promise<void> {
+/**
+ * Tüm ürünleri Microsoft Excel (.xlsx) formatında dışa aktarma yeteneği
+ */
+export async function exportProductsToXLSX(): Promise<{ success: boolean; count: number; shared?: boolean }> {
   const products = await db.products.toArray();
+  if (products.length === 0) {
+    return { success: false, count: 0 };
+  }
+
   const data = products.map((p) => ({
     'Barkod': p.barcode,
     'Ürün Adı': p.name,
@@ -53,7 +106,12 @@ export async function exportProductsToXLSX(): Promise<void> {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Stok Listesi');
   
   const dateStr = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `pocket-depo-stok-listesi_${dateStr}.xlsx`);
+  const fileName = `pocket-depo-stok-listesi_${dateStr}.xlsx`;
+  const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+  const result = await downloadOrShareFile(blob, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  return { success: result.success, count: products.length, shared: result.shared };
 }
 
 /**

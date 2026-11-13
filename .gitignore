@@ -7,3 +7,4 @@ dist-ssr
 expo-pocket-depo
 .env
 .DS_Store
+node_modules
