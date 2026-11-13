@@ -4,56 +4,35 @@ import { Product, UnitType } from '../types';
 import { canAddMoreProducts, getTrialInfo } from './license';
 
 /**
- * Dosyayı mobil Web Share API (Android paylaşım/kaydet menüsü) veya klasik web indirme ile dışa aktarır
+ * Android WebView ve tarayıcılarda dosya indirmesini zorlayan güvenli tetikleyici
  */
-async function downloadOrShareFile(
-  blob: Blob,
-  fileName: string,
-  mimeType: string
-): Promise<{ success: boolean; shared?: boolean }> {
-  // 1. Mobil cihazlar ve Android WebView için Web Share API kontrolü
-  if (typeof navigator !== 'undefined' && 'canShare' in navigator && 'share' in navigator) {
-    try {
-      const file = new File([blob], fileName, { type: mimeType });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Pocket-Depo Stok Listesi',
-          text: `Pocket-Depo: ${fileName}`
-        });
-        return { success: true, shared: true };
-      }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
-        // Kullanıcı paylaşım penceresini bilerek kapattı
-        return { success: true, shared: true };
-      }
-      console.warn('Web Share başarısız, klasik tarayıcı indirmesine geçiliyor:', err);
-    }
-  }
-
-  // 2. Klasik Web İndirme Fallback (Blob Object URL)
+function triggerDownloadViaLink(href: string, fileName: string) {
   try {
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
+    link.href = href;
     link.download = fileName;
+    link.setAttribute('target', '_blank');
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    return { success: true, shared: false };
+    setTimeout(() => {
+      try {
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+      } catch {
+        // ignore
+      }
+    }, 1500);
   } catch (err) {
-    console.error('Klasik indirme başarısız:', err);
-    throw err;
+    console.warn('triggerDownloadViaLink hatası:', err);
   }
 }
 
 /**
- * Tüm ürünleri CSV formatında dışa aktarma yeteneği
+ * Tüm ürünleri CSV formatında dışa aktarma yeteneği (Data URI + Blob)
  */
-export async function exportProductsToCSV(): Promise<{ success: boolean; count: number; shared?: boolean }> {
+export async function exportProductsToCSV(): Promise<{ success: boolean; count: number }> {
   const products = await db.products.toArray();
   if (products.length === 0) {
     return { success: false, count: 0 };
@@ -73,18 +52,30 @@ export async function exportProductsToCSV(): Promise<{ success: boolean; count: 
   ]);
 
   const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `pocket-depo-stok-listesi_${dateStr}.csv`;
 
-  const result = await downloadOrShareFile(blob, fileName, 'text/csv;charset=utf-8;');
-  return { success: result.success, count: products.length, shared: result.shared };
+  // 1. Data URI yöntemi (Android WebView için en güvenilir yöntem)
+  const encodedUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+  triggerDownloadViaLink(encodedUri, fileName);
+
+  // 2. Blob fallback
+  try {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    triggerDownloadViaLink(blobUrl, fileName);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (e) {
+    console.debug('CSV Blob fallback hatası:', e);
+  }
+
+  return { success: true, count: products.length };
 }
 
 /**
- * Tüm ürünleri Microsoft Excel (.xlsx) formatında dışa aktarma yeteneği
+ * Tüm ürünleri Microsoft Excel (.xlsx) formatında dışa aktarma yeteneği (Base64 Data URI + Blob)
  */
-export async function exportProductsToXLSX(): Promise<{ success: boolean; count: number; shared?: boolean }> {
+export async function exportProductsToXLSX(): Promise<{ success: boolean; count: number }> {
   const products = await db.products.toArray();
   if (products.length === 0) {
     return { success: false, count: 0 };
@@ -107,11 +98,79 @@ export async function exportProductsToXLSX(): Promise<{ success: boolean; count:
   
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `pocket-depo-stok-listesi_${dateStr}.xlsx`;
-  const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  // 1. Base64 Data URI (Android WebView'de dosya indirmeyi başlatan en garantili yöntem)
+  const b64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+  const dataUri = `data:application/octet-stream;base64,${b64}`;
+  triggerDownloadViaLink(dataUri, fileName);
 
-  const result = await downloadOrShareFile(blob, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  return { success: result.success, count: products.length, shared: result.shared };
+  // 2. Blob URL fallback
+  try {
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blobUrl = URL.createObjectURL(blob);
+    triggerDownloadViaLink(blobUrl, fileName);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (e) {
+    console.debug('Excel Blob fallback hatası:', e);
+  }
+
+  return { success: true, count: products.length };
+}
+
+/**
+ * Tüm stok listesini düzenli formatta WhatsApp veya telefon paylaşım menüsüne aktarır
+ */
+export async function shareStockListWhatsApp(): Promise<boolean> {
+  const products = await db.products.toArray();
+  if (products.length === 0) return false;
+
+  let text = `📦 *POCKET-DEPO GÜNCEL STOK LİSTESİ*\n📅 Tarih: ${new Date().toLocaleDateString('tr-TR')}\n📊 Toplam Kalem: ${products.length}\n\n`;
+
+  products.forEach((p, i) => {
+    text += `${i + 1}. *${p.name}*\n   Barkod: ${p.barcode} | Stok: *${p.currentStock} ${p.unit}* | Raf: ${p.shelfLocation || '-'}\n`;
+  });
+
+  text += `\n_Pocket-Depo Mobil Stok & Sayım_`;
+
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Pocket-Depo Stok Listesi',
+        text: text
+      });
+      return true;
+    } catch {
+      // Abort veya share yoksa WhatsApp URL'e geç
+    }
+  }
+
+  const encoded = encodeURIComponent(text);
+  window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+  return true;
+}
+
+/**
+ * Tüm listeyi Excel ve Google E-Tablolar ile tam uyumlu hücre formatında panoya kopyalar
+ */
+export async function copyStockListToClipboard(): Promise<boolean> {
+  const products = await db.products.toArray();
+  if (products.length === 0) return false;
+
+  const header = ['Barkod', 'Ürün Adı', 'Kategori', 'Raf Konumu', 'Mevcut Stok', 'Birim', 'Kritik Stok'].join('\t');
+  const rows = products.map((p) => [
+    p.barcode,
+    p.name,
+    p.category,
+    p.shelfLocation,
+    p.currentStock,
+    p.unit,
+    p.minStock
+  ].join('\t'));
+
+  const fullText = [header, ...rows].join('\n');
+  await navigator.clipboard.writeText(fullText);
+  return true;
 }
 
 /**

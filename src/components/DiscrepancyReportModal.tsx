@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, FileText, Share2, Download, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Package } from 'lucide-react';
 import { Product, StockMovement } from '../types';
-import { exportProductsToCSV } from '../services/csv';
+import { exportProductsToCSV, exportProductsToXLSX } from '../services/csv';
 import { playSuccessBeep } from '../services/sound';
 
 interface DiscrepancyReportModalProps {
@@ -17,6 +17,8 @@ export const DiscrepancyReportModal: React.FC<DiscrepancyReportModalProps> = ({
   products,
   movements
 }) => {
+  const [downloadNotice, setDownloadNotice] = React.useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const totalStock = products.reduce((acc, p) => acc + p.currentStock, 0);
@@ -72,8 +74,15 @@ export const DiscrepancyReportModal: React.FC<DiscrepancyReportModalProps> = ({
   };
 
   const handleDownloadExcel = async () => {
-    await exportProductsToCSV();
-    playSuccessBeep();
+    try {
+      await exportProductsToXLSX();
+      playSuccessBeep();
+      setDownloadNotice('✅ Excel raporunuz cihazınıza gönderildi! İndirilenler klasörünü ve üst bildirim çubuğunu kontrol edin.');
+    } catch {
+      await exportProductsToCSV();
+      playSuccessBeep();
+      setDownloadNotice('✅ CSV raporunuz hazırlandı!');
+    }
   };
 
   return (
@@ -188,6 +197,12 @@ export const DiscrepancyReportModal: React.FC<DiscrepancyReportModalProps> = ({
 
         {/* Alt Butonlar: WhatsApp Paylaşımı & Excel İndirme */}
         <div className="pt-3 border-t border-slate-800 space-y-2">
+          {downloadNotice && (
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs animate-fade-in">
+              {downloadNotice}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleShareWhatsApp}

@@ -16,11 +16,20 @@ import {
   Trash2,
   PackageOpen,
   Sparkles,
-  Camera
+  Camera,
+  Share2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Product } from '../types';
 import { db, seedInitialData } from '../db';
-import { exportProductsToCSV, exportProductsToXLSX, importProductsFromCSV } from '../services/csv';
+import {
+  exportProductsToCSV,
+  exportProductsToXLSX,
+  importProductsFromCSV,
+  shareStockListWhatsApp,
+  copyStockListToClipboard
+} from '../services/csv';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
 import { isProLicense, getTrialInfo } from '../services/license';
 import { requestNotificationPermission } from '../services/notification';
@@ -53,6 +62,8 @@ export const StockList: React.FC<StockListProps> = ({
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [copiedSuccess, setCopiedSuccess] = useState(false);
   const [alertModal, setAlertModal] = useState<{
     title: string;
     message: string;
@@ -97,6 +108,8 @@ export const StockList: React.FC<StockListProps> = ({
       );
       return;
     }
+    setExportNotice(null);
+    setCopiedSuccess(false);
     setIsExportModalOpen(true);
   };
 
@@ -105,9 +118,7 @@ export const StockList: React.FC<StockListProps> = ({
       const res = await exportProductsToXLSX();
       if (res.success) {
         playSuccessBeep();
-        setIsExportModalOpen(false);
-        setImportStatus(res.shared ? 'Excel dosyanız paylaşım/kaydet menüsüne aktarıldı.' : 'Excel dosyası (.xlsx) başarıyla indirildi.');
-        setTimeout(() => setImportStatus(null), 5000);
+        setExportNotice('✅ Excel (.xlsx) dosyanız cihazınıza aktarıldı! Telefonunuzun üst bildirim çubuğunu ve "İndirilenler" (Downloads) klasörünü kontrol edin.');
       }
     } catch {
       showAlert('İndirme Hatası', 'Excel dosyası indirilirken bir sorun oluştu.', 'error');
@@ -119,12 +130,30 @@ export const StockList: React.FC<StockListProps> = ({
       const res = await exportProductsToCSV();
       if (res.success) {
         playSuccessBeep();
-        setIsExportModalOpen(false);
-        setImportStatus(res.shared ? 'CSV dosyanız paylaşım/kaydet menüsüne aktarıldı.' : 'CSV dosyası (.csv) başarıyla indirildi.');
-        setTimeout(() => setImportStatus(null), 5000);
+        setExportNotice('✅ CSV dosyanız cihazınıza aktarıldı! Telefonunuzun üst bildirim çubuğunu ve "İndirilenler" klasörünü kontrol edin.');
       }
     } catch {
       showAlert('İndirme Hatası', 'CSV dosyası indirilirken bir sorun oluştu.', 'error');
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    try {
+      await shareStockListWhatsApp();
+      playSuccessBeep();
+    } catch {
+      showAlert('Paylaşım Hatası', 'WhatsApp paylaşımı başlatılamadı.', 'error');
+    }
+  };
+
+  const handleCopyClipboard = async () => {
+    try {
+      await copyStockListToClipboard();
+      playSuccessBeep();
+      setCopiedSuccess(true);
+      setTimeout(() => setCopiedSuccess(false), 4000);
+    } catch {
+      showAlert('Kopyalama Hatası', 'Panoya kopyalama başarısız oldu.', 'error');
     }
   };
 
@@ -582,11 +611,20 @@ export const StockList: React.FC<StockListProps> = ({
               </div>
             </div>
 
-            <div className="space-y-2.5 pt-1">
+            {/* Bildirim Durum Kutusu */}
+            {exportNotice && (
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs leading-relaxed animate-fade-in flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>{exportNotice}</span>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              {/* 1. Excel İndir */}
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs rounded-xl flex items-center justify-between shadow-lg shadow-emerald-500/20 transition-all"
+                className="w-full py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs rounded-xl flex items-center justify-between shadow-lg shadow-emerald-500/20 transition-all"
               >
                 <div className="flex items-center gap-2.5">
                   <FileText className="w-4 h-4 text-emerald-200" />
@@ -598,10 +636,11 @@ export const StockList: React.FC<StockListProps> = ({
                 <span className="text-[10px] bg-emerald-700/80 px-2 py-0.5 rounded font-bold">Önerilen</span>
               </button>
 
+              {/* 2. CSV İndir */}
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-slate-200 font-bold text-xs rounded-xl flex items-center justify-between border border-slate-700 transition-all"
+                className="w-full py-2 px-3.5 bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-slate-200 font-bold text-xs rounded-xl flex items-center justify-between border border-slate-700 transition-all"
               >
                 <div className="flex items-center gap-2.5">
                   <Download className="w-4 h-4 text-slate-400" />
@@ -611,12 +650,50 @@ export const StockList: React.FC<StockListProps> = ({
                   </div>
                 </div>
               </button>
+
+              {/* 3. WhatsApp Paylaşımı (Telefonlar için en garantili yöntem) */}
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="w-full py-2.5 px-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:brightness-110 active:scale-[0.98] text-white font-bold text-xs rounded-xl flex items-center justify-between shadow-md shadow-emerald-500/20 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Share2 className="w-4 h-4 text-emerald-200" />
+                  <div className="text-left">
+                    <div className="font-bold">WhatsApp ile Listeyi Gönder</div>
+                    <div className="text-[10px] text-emerald-100/80">Formatlı tablo olarak anında paylaşır</div>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-700/60 px-2 py-0.5 rounded font-bold">Pratik</span>
+              </button>
+
+              {/* 4. Panoya Kopyala */}
+              <button
+                type="button"
+                onClick={handleCopyClipboard}
+                className="w-full py-2 px-3.5 bg-slate-800/80 hover:bg-slate-700 active:scale-[0.98] text-slate-300 font-bold text-xs rounded-xl flex items-center justify-between border border-slate-700/80 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  {copiedSuccess ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-slate-400" />
+                  )}
+                  <div className="text-left">
+                    <div className="font-bold">{copiedSuccess ? 'Panoya Kopyalandı!' : 'Listeyi Panoya Kopyala'}</div>
+                    <div className="text-[10px] text-slate-400">Telefonda Excel / E-Tablolar'a yapıştırın</div>
+                  </div>
+                </div>
+              </button>
             </div>
 
             <div className="pt-1">
               <button
                 type="button"
-                onClick={() => setIsExportModalOpen(false)}
+                onClick={() => {
+                  setIsExportModalOpen(false);
+                  setExportNotice(null);
+                }}
                 className="w-full py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs rounded-xl transition-all"
               >
                 Kapat
