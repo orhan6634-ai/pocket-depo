@@ -151,8 +151,8 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                     desc: 'İnternet kesintisi olmadan sahada personelinize tam yetki verin.'
                   },
                   {
-                    title: 'Ömür Boyu Güncelleme & Destek',
-                    desc: 'Yeni sürümler ve ek özellikler lisansınıza ömür boyu dahil.'
+                    title: 'Tam Sistem Yedeği & Veri Güvenliği',
+                    desc: 'Tüm deponuzu güvenle .json olarak yedekleyin ve sıfır riskle koruyun.'
                   }
                 ].map((item, idx) => (
                   <div
