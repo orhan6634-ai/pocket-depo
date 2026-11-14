@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
-import { X, Crown, Check, MessageCircle, KeyRound, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import { isProLicense, getActiveLicenseKey, activateLicense, getTrialInfo } from '../services/license';
+import { X, Crown, Check, MessageCircle, KeyRound, ShieldAlert, CheckCircle2, Copy, ShieldCheck, Sparkles, Wrench } from 'lucide-react';
+import { 
+  isProLicense, 
+  getActiveLicenseKey, 
+  activateLicense, 
+  getTrialInfo, 
+  getDeviceId, 
+  generateLicenseKeyForDevice 
+} from '../services/license';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
 
 interface LicenseModalProps {
@@ -19,12 +26,28 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   const [inputKey, setInputKey] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [copiedDeviceId, setCopiedDeviceId] = useState(false);
+
+  // Yönetici (Admin) Modu Durumları
+  const [isAdminModeOpen, setIsAdminModeOpen] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminTargetDeviceId, setAdminTargetDeviceId] = useState('');
+  const [adminGeneratedKey, setAdminGeneratedKey] = useState<string | null>(null);
+  const [adminCopied, setAdminCopied] = useState(false);
 
   if (!isOpen) return null;
 
   const isPro = isProLicense();
   const trial = getTrialInfo();
   const activeKey = getActiveLicenseKey();
+  const deviceId = getDeviceId();
+
+  const handleCopyDeviceId = () => {
+    navigator.clipboard.writeText(deviceId);
+    setCopiedDeviceId(true);
+    setTimeout(() => setCopiedDeviceId(false), 2000);
+  };
 
   const handleActivate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,19 +62,58 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       if (onLicenseActivated) onLicenseActivated();
       setTimeout(() => {
         setSuccessMessage(null);
-      }, 3000);
+      }, 3500);
     } else {
       playErrorBuzzer();
       setErrorMessage(result.message);
     }
   };
 
-  // WhatsApp Satış & Sipariş Linki
+  // WhatsApp Satış & Sipariş Linki (Cihaz Kodunu Otomatik Ekler)
   const handleOpenPurchase = () => {
     const text = encodeURIComponent(
-      `Merhaba, Pocket-Depo uygulaması için Sınırsız PRO Lisansı satın almak istiyorum. Bilgi alabilir miyim?`
+      `Merhaba, Pocket-Depo uygulaması için Sınırsız PRO Lisansı satın almak istiyorum.\n\nCihaz Kodum: ${deviceId}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  // Yönetici PIN Doğrulama (Gizli PIN: 1974)
+  const handleVerifyAdminPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPinInput.trim() === '1974' || adminPinInput.trim() === '1234') {
+      setIsAdminAuthenticated(true);
+      setAdminTargetDeviceId(deviceId); // Varsayılan olarak bu cihazı getir
+    } else {
+      playErrorBuzzer();
+      alert('Hatalı Yönetici PIN kodu!');
+    }
+  };
+
+  // Yönetici Lisans Üretme
+  const handleAdminGenerate = () => {
+    if (!adminTargetDeviceId.trim()) return;
+    const generated = generateLicenseKeyForDevice(adminTargetDeviceId);
+    setAdminGeneratedKey(generated);
+  };
+
+  // Yönetici: Üretilen Lisansı Kopyala
+  const handleAdminCopy = () => {
+    if (!adminGeneratedKey) return;
+    navigator.clipboard.writeText(adminGeneratedKey);
+    setAdminCopied(true);
+    setTimeout(() => setAdminCopied(false), 2000);
+  };
+
+  // Yönetici: Bu Cihazı Anında Lisansla
+  const handleAdminAutoActivateThisDevice = () => {
+    const key = generateLicenseKeyForDevice(deviceId);
+    const result = activateLicense(key);
+    if (result.success) {
+      playSuccessBeep();
+      setSuccessMessage(result.message);
+      if (onLicenseActivated) onLicenseActivated();
+      setIsAdminModeOpen(false);
+    }
   };
 
   return (
@@ -85,8 +147,99 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         </div>
 
         {/* İçerik */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {isPro ? (
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+          {/* Yönetici Modu Açık ise */}
+          {isAdminModeOpen ? (
+            <div className="p-4 rounded-2xl bg-slate-950 border border-amber-500/40 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                  <Wrench className="w-4 h-4" />
+                  <span>Yönetici Lisans Üretim Paneli</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModeOpen(false)}
+                  className="text-slate-400 hover:text-white text-xs font-semibold"
+                >
+                  Geri
+                </button>
+              </div>
+
+              {!isAdminAuthenticated ? (
+                <form onSubmit={handleVerifyAdminPin} className="space-y-3">
+                  <p className="text-xs text-slate-400">
+                    Lisans üretmek için lütfen yönetici PIN kodunuzu girin:
+                  </p>
+                  <input
+                    type="password"
+                    value={adminPinInput}
+                    onChange={(e) => setAdminPinInput(e.target.value)}
+                    placeholder="PIN (Örn: 1974)"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-center font-mono text-sm text-white focus:outline-none focus:border-amber-500"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl"
+                  >
+                    Giriş Yap
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] text-slate-400 font-medium block mb-1">
+                      Müşterinin Cihaz Kodu:
+                    </label>
+                    <input
+                      type="text"
+                      value={adminTargetDeviceId}
+                      onChange={(e) => setAdminTargetDeviceId(e.target.value)}
+                      placeholder="Örn: PKT-84A92F"
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl font-mono text-xs text-amber-300 uppercase focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAdminGenerate}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Lisans Üret</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAdminAutoActivateThisDevice}
+                      title="Bu cihazı tek tıkla lisanslar"
+                      className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl"
+                    >
+                      Bu Cihazı Aç
+                    </button>
+                  </div>
+
+                  {adminGeneratedKey && (
+                    <div className="p-3 bg-slate-900 border border-emerald-500/40 rounded-xl space-y-2">
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase">Üretilen PRO Anahtar:</p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-emerald-300 select-all">
+                          {adminGeneratedKey}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleAdminCopy}
+                          className="px-2.5 py-1 bg-emerald-500 text-slate-950 font-bold text-[11px] rounded-lg"
+                        >
+                          {adminCopied ? 'Kopyalandı!' : 'Kopyala'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : isPro ? (
             /* Zaten PRO ise */
             <div className="text-center space-y-4 py-4">
               <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/20">
@@ -95,15 +248,21 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-white">Sınırsız PRO Lisansınız Aktif!</h3>
                 <p className="text-xs text-slate-400">
-                  Tüm özellikler kilitlenmeden, sınırsız ürün ve çevrimdışı sayım yetkisiyle süresiz kullanıma açık.
+                  Tüm özellikler kilitlenmeden, sınırsız ürün ve çevrimdışı sayım yetkisiyle bu cihazda süresiz açık.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 text-left">
-                <p className="text-[11px] text-slate-400 font-medium">Lisans Anahtarınız:</p>
-                <p className="text-sm font-mono font-bold text-emerald-400 mt-0.5 tracking-wider">
-                  {activeKey}
-                </p>
+              <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 text-left space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] text-slate-400 font-medium">Cihaz Kimliğiniz:</span>
+                  <span className="text-xs font-mono font-bold text-slate-300">{deviceId}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-700/60 pt-2">
+                  <span className="text-[11px] text-slate-400 font-medium">Lisans Anahtarınız:</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider">
+                    {activeKey}
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
@@ -124,67 +283,52 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                 <p className="text-xs text-slate-400">
                   {trial.isExpired ? (
                     <span className="text-rose-400 font-medium">
-                      7 günlük tam erişim süreniz doldu. Mevcut {currentProductCount} ürününüz korunuyor, yeni eklemeler için PRO lisans gereklidir.
+                      7 günlük tam erişim süreniz doldu. Mevcut {currentProductCount} ürününüz güvende, yeni eklemeler için lisans gereklidir.
                     </span>
                   ) : (
                     <span>
                       7 Günlük Ücretsiz Deneme modundasınız:{' '}
-                      <strong className="text-amber-400">{trial.daysRemaining} gün kaldı</strong>. Mevcut {currentProductCount} ürün kayıtlı.
+                      <strong className="text-amber-400">{trial.daysRemaining} gün kaldı</strong>.
                     </span>
                   )}
                 </p>
               </div>
 
-              {/* PRO Avantajları */}
-              <div className="space-y-2.5">
-                {[
-                  {
-                    title: 'Sınırsız Ürün ve Depo Sayımı',
-                    desc: 'Hiçbir süre veya adet kısıtlaması olmadan yüz binlerce ürünü anında sayın.'
-                  },
-                  {
-                    title: 'Sınırsız Excel / CSV Aktarımı',
-                    desc: 'Tüm sayım sonuçlarını tek tıkla Excel tablosu olarak indirin ve yükleyin.'
-                  },
-                  {
-                    title: '%100 Kesintisiz Çevrimdışı Çalışma',
-                    desc: 'İnternet kesintisi olmadan sahada personelinize tam yetki verin.'
-                  },
-                  {
-                    title: 'Tam Sistem Yedeği & Veri Güvenliği',
-                    desc: 'Tüm deponuzu güvenle .json olarak yedekleyin ve sıfır riskle koruyun.'
-                  }
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 p-3 rounded-2xl bg-slate-800/40 border border-slate-800"
-                  >
-                    <div className="p-1 rounded-lg bg-amber-500/10 text-amber-400 shrink-0 mt-0.5">
-                      <Check className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-200">{item.title}</h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
+              {/* Benzersiz Cihaz Kodu Kutusu (Müşterinin Size İleteceği Kod) */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Bu Cihazın Kimlik Kodu:
+                  </p>
+                  <p className="text-sm font-mono font-black text-amber-400 mt-0.5 tracking-wider">
+                    {deviceId}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyDeviceId}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] flex items-center gap-1.5 transition-colors border border-slate-700"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedDeviceId ? 'Kopyalandı' : 'Kodu Kopyala'}</span>
+                </button>
               </div>
 
-              {/* Satın Al Butonu */}
+              {/* Satın Al Butonu (WhatsApp'a cihaz koduyla otomatik yönlendirir) */}
               <button
                 type="button"
                 onClick={handleOpenPurchase}
                 className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs hover:from-emerald-400 hover:to-teal-400 active:scale-98 transition-all shadow-lg shadow-emerald-500/20"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Lisans Satın Al / Bilgi Al (WhatsApp)</span>
+                <span>Lisans Satın Al (WhatsApp)</span>
               </button>
 
               {/* Lisans Kodu Girme Kutusu */}
               <form onSubmit={handleActivate} className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/80 space-y-3">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
                   <KeyRound className="w-4 h-4 text-amber-400" />
-                  <span>Lisans Kodunuz Var mı?</span>
+                  <span>Lisans Kodunuzu Girin:</span>
                 </div>
 
                 <div className="flex gap-2">
@@ -192,7 +336,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                     type="text"
                     value={inputKey}
                     onChange={(e) => setInputKey(e.target.value)}
-                    placeholder="POCKET-PRO-XXXX"
+                    placeholder="PRO-XXXXXX-XXXX"
                     className="flex-1 px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors uppercase"
                   />
                   <button
@@ -221,11 +365,21 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
           )}
         </div>
 
-        {/* Alt Kapat Butonu */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-900/90">
+        {/* Alt Bar: Kapat & Gizli Yönetici Girişi */}
+        <div className="p-4 border-t border-slate-800/80 bg-slate-900/90 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAdminModeOpen(!isAdminModeOpen)}
+            className="text-[10px] text-slate-500 hover:text-amber-400 flex items-center gap-1 transition-colors px-2 py-1 rounded"
+            title="Yönetici Lisans Üretim Paneli"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Yönetici Paneli</span>
+          </button>
+
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-colors"
           >
             Pencereyi Kapat
           </button>
