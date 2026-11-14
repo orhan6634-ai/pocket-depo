@@ -45,6 +45,8 @@ interface StockListProps {
   onOpenReportModal?: () => void;
   onOpenBackupModal?: () => void;
   onOpenScanner?: () => void;
+  isExportModalOpen?: boolean;
+  setIsExportModalOpen?: (open: boolean) => void;
 }
 
 export const StockList: React.FC<StockListProps> = ({
@@ -55,7 +57,9 @@ export const StockList: React.FC<StockListProps> = ({
   onOpenLicense,
   onOpenReportModal,
   onOpenBackupModal,
-  onOpenScanner
+  onOpenScanner,
+  isExportModalOpen: isExportModalOpenProp,
+  setIsExportModalOpen: setIsExportModalOpenProp
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -63,7 +67,9 @@ export const StockList: React.FC<StockListProps> = ({
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [internalExportOpen, setInternalExportOpen] = useState(false);
+  const isExportModalOpen = isExportModalOpenProp !== undefined ? isExportModalOpenProp : internalExportOpen;
+  const setIsExportModalOpen = setIsExportModalOpenProp || setInternalExportOpen;
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
   const [alertModal, setAlertModal] = useState<{

@@ -28,9 +28,22 @@ export function App() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [scannedBarcodeForAdd, setScannedBarcodeForAdd] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+
+  // Açılışta otomatik tanıtım / rehber kontrolü ("Bir daha gösterme" denmediyse aç)
+  useEffect(() => {
+    try {
+      const dontShow = localStorage.getItem('pocket_dont_show_guide');
+      if (dontShow !== 'true') {
+        setIsGuideOpen(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // 1. Canlı Ping Destekli Sağlam Ağ Durumu (Android yalan söyleyemez)
   const [isOnline, setIsOnline] = useState<boolean>(() => networkService.getStatus());
@@ -250,6 +263,8 @@ export function App() {
             onOpenReportModal={() => setIsReportModalOpen(true)}
             onOpenBackupModal={() => setIsBackupModalOpen(true)}
             onOpenScanner={() => setIsScannerOpen(true)}
+            isExportModalOpen={isExportModalOpen}
+            setIsExportModalOpen={setIsExportModalOpen}
           />
         )}
 
@@ -298,10 +313,20 @@ export function App() {
         }}
       />
 
-      {/* İlk Kurulum / Rehber Modal */}
+      {/* İlk Kurulum / İnteraktif Rehber Modal */}
       <OnboardingModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+        onOpenScanner={() => setIsScannerOpen(true)}
+        onOpenAddModal={() => {
+          setEditingProduct(null);
+          setScannedBarcodeForAdd('');
+          setIsAddModalOpen(true);
+        }}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenBackupModal={() => setIsBackupModalOpen(true)}
+        onToggleOnlineOffline={handleToggleOnlineOffline}
+        onNavigateTab={(tab) => setActiveTab(tab)}
       />
 
       {/* Lisans Yönetim Modal */}
