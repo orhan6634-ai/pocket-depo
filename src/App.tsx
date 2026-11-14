@@ -8,7 +8,7 @@ import { HistoryView } from './components/HistoryView';
 import { BottomNav } from './components/BottomNav';
 import { ScannerModal } from './components/ScannerModal';
 import { QuickAddModal } from './components/QuickAddModal';
-import { OnboardingModal } from './components/OnboardingModal';
+import { InteractiveTour } from './components/InteractiveTour';
 import { LicenseModal } from './components/LicenseModal';
 import { DiscrepancyReportModal } from './components/DiscrepancyReportModal';
 import { BackupModal } from './components/BackupModal';
@@ -33,10 +33,10 @@ export function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
 
-  // Açılışta otomatik tanıtım / rehber kontrolü ("Bir daha gösterme" denmediyse aç)
+  // Açılışta otomatik canlı tanıtım turu ("Bir daha gösterme" denmediyse başlat)
   useEffect(() => {
     try {
-      const dontShow = localStorage.getItem('pocket_dont_show_guide');
+      const dontShow = localStorage.getItem('pocket_dont_show_tour') || localStorage.getItem('pocket_dont_show_guide');
       if (dontShow !== 'true') {
         setIsGuideOpen(true);
       }
@@ -313,20 +313,16 @@ export function App() {
         }}
       />
 
-      {/* İlk Kurulum / İnteraktif Rehber Modal */}
-      <OnboardingModal
+      {/* Canlı Otomatik Tanıtım Turu (Kullanıcı Tıklayıp Denesin) */}
+      <InteractiveTour
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
-        onOpenScanner={() => setIsScannerOpen(true)}
-        onOpenAddModal={() => {
-          setEditingProduct(null);
-          setScannedBarcodeForAdd('');
-          setIsAddModalOpen(true);
-        }}
-        onOpenExportModal={() => setIsExportModalOpen(true)}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onToggleOnlineOffline={handleToggleOnlineOffline}
-        onNavigateTab={(tab) => setActiveTab(tab)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        setIsScannerOpen={setIsScannerOpen}
+        setIsAddModalOpen={setIsAddModalOpen}
+        setIsExportModalOpen={setIsExportModalOpen}
+        setIsBackupModalOpen={setIsBackupModalOpen}
       />
 
       {/* Lisans Yönetim Modal */}
