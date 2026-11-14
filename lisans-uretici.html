@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket-Depo | Yönetici Lisans Üretim Paneli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top, #0f172a 0%, #020617 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+    <!-- Başlık -->
+    <div class="text-center space-y-2">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-1">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+        </svg>
+      </div>
+      <h1 class="text-xl font-bold text-white tracking-tight">Pocket-Depo Lisans Üreteci</h1>
+      <p class="text-xs text-slate-400">Yönetici Paneli — Müşteriye Özel PRO Lisans Kodu</p>
+    </div>
+
+    <!-- Form -->
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+          Müşteri Cihaz Kodu (WhatsApp'tan gelen kod):
+        </label>
+        <input 
+          id="deviceIdInput" 
+          type="text" 
+          placeholder="Örn: PKT-84A92F veya 84A92F" 
+          class="w-full px-4 py-3 bg-slate-950 border border-slate-700/80 rounded-xl text-sm font-mono text-amber-300 placeholder-slate-600 uppercase focus:outline-none focus:border-amber-500 transition-colors"
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+
+      <button 
+        id="generateBtn" 
+        class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 active:scale-98 transition-all flex items-center justify-center gap-2"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
+        <span>Lisans Kodunu Üret</span>
+      </button>
+    </div>
+
+    <!-- Sonuç Kartı -->
+    <div id="resultCard" class="hidden p-4 bg-slate-950/80 border border-emerald-500/40 rounded-2xl space-y-3 animate-fade-in">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Üretilen PRO Lisans:</span>
+        <span id="copiedToast" class="hidden text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded">Kopyalandı!</span>
+      </div>
+
+      <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+        <span id="licenseOutput" class="font-mono text-base font-bold text-emerald-300 tracking-wider select-all"></span>
+        <button id="copyBtn" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors">
+          Kopyala
+        </button>
+      </div>
+
+      <div class="pt-2">
+        <button id="shareWaBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2">
+          <span>WhatsApp ile Müşteriye Gönder</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Alt Bilgilendirme -->
+    <div class="text-[11px] text-slate-500 text-center leading-relaxed border-t border-slate-800/80 pt-4">
+      Bu kod müşterinin cihazına özeldir. Başka bir cihazda veya telefonda çalışmaz.
+    </div>
+  </div>
+
+  <script>
+    const SECRET_SALT = 'PKT_ORHAN_DEPO_SECURE_2026_MASTER';
+
+    function computeChecksum(cleanDeviceStr) {
+      const fullStr = cleanDeviceStr.replace(/[^A-Z0-9]/g, '') + SECRET_SALT;
+      let hash1 = 0x811c9dc5;
+      let hash2 = 0x55555555;
+      for (let i = 0; i < fullStr.length; i++) {
+        const code = fullStr.charCodeAt(i);
+        hash1 ^= code;
+        hash1 = Math.imul(hash1, 0x01000193);
+        hash2 = ((hash2 << 5) - hash2 + code) | 0;
+      }
+      const hex1 = (Math.abs(hash1) % 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+      const hex2 = (Math.abs(hash2) % 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+      return hex1.substring(0, 2) + hex2.substring(0, 2);
+    }
+
+    function generateKey(rawDeviceId) {
+      const clean = rawDeviceId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const coreCode = clean.startsWith('PKT') ? clean.substring(3) : clean;
+      if (!coreCode || coreCode.length < 3) return null;
+      const checksum = computeChecksum(coreCode);
+      return `PRO-${coreCode}-${checksum}`;
+    }
+
+    const deviceIdInput = document.getElementById('deviceIdInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const resultCard = document.getElementById('resultCard');
+    const licenseOutput = document.getElementById('licenseOutput');
+    const copyBtn = document.getElementById('copyBtn');
+    const copiedToast = document.getElementById('copiedToast');
+    const shareWaBtn = document.getElementById('shareWaBtn');
+
+    function doGenerate() {
+      const val = deviceIdInput.value;
+      const key = generateKey(val);
+      if (!key) {
+        alert('Lütfen geçerli bir Cihaz Kodu girin (Örn: PKT-84A92F)');
+        return;
+      }
+      licenseOutput.textContent = key;
+      resultCard.classList.remove('hidden');
+    }
+
+    generateBtn.addEventListener('click', doGenerate);
+    deviceIdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doGenerate();
+    });
+
+    copyBtn.addEventListener('click', () => {
+      const key = licenseOutput.textContent;
+      navigator.clipboard.writeText(key).then(() => {
+        copiedToast.classList.remove('hidden');
+        setTimeout(() => copiedToast.classList.add('hidden'), 2000);
+      });
+    });
+
+    shareWaBtn.addEventListener('click', () => {
+      const key = licenseOutput.textContent;
+      const msg = encodeURIComponent(`Merhaba! Pocket-Depo PRO Lisansınız tanımlanmıştır.\n\nLisans Anahtarınız:\n${key}\n\nUygulama içinde Lisans ekranına bu kodu yapıştırıp "Etkinleştir" butonuna basarak PRO sürümünüzü süresiz kullanabilirsiniz. Hayırlı işler dileriz!`);
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    });
+  </script>
+</body>
+</html>
