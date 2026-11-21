@@ -18,7 +18,8 @@ import {
   Sparkles,
   Layers,
   MapPin,
-  Tag
+  Tag,
+  QrCode
 } from 'lucide-react';
 import { db } from '../db';
 import { Product, UnitType } from '../types';
@@ -27,6 +28,7 @@ import { canAddMoreProducts } from '../services/license';
 
 export type BatchOpType = 'in' | 'out';
 export type ScannerMode = 'single' | 'batch_count' | 'batch_add';
+export type ScanFormatFilter = 'all' | 'qr' | 'barcode';
 
 export interface BatchItemSummary {
   productId: number;
@@ -65,6 +67,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
 
   // Seri Tarama Modu Durumları
   const [scannerMode, setScannerMode] = useState<ScannerMode>('single');
+  const [formatFilter, setFormatFilter] = useState<ScanFormatFilter>('all');
   const [batchOp, setBatchOp] = useState<BatchOpType>('in');
   const [batchCount, setBatchCount] = useState<number>(0);
   const [newProductsCount, setNewProductsCount] = useState<number>(0);
@@ -362,18 +365,25 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         }
       }
 
-      const formatsToSupport = [
+      const barcodeFormats = [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39,
         Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.QR_CODE
+        Html5QrcodeSupportedFormats.UPC_E
       ];
+
+      const formatsToSupport =
+        formatFilter === 'qr'
+          ? [Html5QrcodeSupportedFormats.QR_CODE]
+          : formatFilter === 'barcode'
+          ? barcodeFormats
+          : [Html5QrcodeSupportedFormats.QR_CODE, ...barcodeFormats];
 
       const html5QrCode = new Html5Qrcode(containerId, {
         formatsToSupport,
+        useBarCodeDetectorIfSupported: true,
         verbose: false
       });
       scannerRef.current = html5QrCode;
@@ -381,10 +391,24 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       await html5QrCode.start(
         { facingMode: 'environment' },
         {
-          fps: 20,
+          fps: formatFilter === 'qr' ? 25 : 20,
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
           qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const w = Math.min(viewfinderWidth * 0.85, 300);
-            const h = Math.min(viewfinderHeight * 0.45, 170);
+            if (formatFilter === 'qr') {
+              const size = Math.floor(Math.min(viewfinderWidth * 0.78, viewfinderHeight * 0.62, 250));
+              return { width: size, height: size };
+            }
+            if (formatFilter === 'barcode') {
+              const w = Math.min(viewfinderWidth * 0.85, 300);
+              const h = Math.min(viewfinderHeight * 0.45, 170);
+              return { width: Math.floor(w), height: Math.floor(h) };
+            }
+            const w = Math.min(viewfinderWidth * 0.82, 260);
+            const h = Math.min(viewfinderHeight * 0.6, 240);
             return { width: Math.floor(w), height: Math.floor(h) };
           }
         },
@@ -448,7 +472,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       clearTimeout(timer);
       safeStopScanner();
     };
-  }, [isOpen, scannerMode]);
+  }, [isOpen, scannerMode, formatFilter]);
 
   const toggleTorch = async () => {
     if (!scannerRef.current || !isScanningRef.current) return;
@@ -575,6 +599,47 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         </button>
       </div>
 
+      {/* Format Seçici: Tümü / Sadece Karekod / Sadece Barkod */}
+      <div className="z-10 mt-1.5 bg-slate-900/80 border border-slate-800/80 rounded-xl p-1 grid grid-cols-3 gap-1 max-w-md mx-auto w-full">
+        <button
+          type="button"
+          onClick={() => setFormatFilter('all')}
+          className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+            formatFilter === 'all'
+              ? 'bg-emerald-600/90 text-white shadow'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Layers className="w-3 h-3" />
+          <span>Tümü (Oto)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFormatFilter('qr')}
+          className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+            formatFilter === 'qr'
+              ? 'bg-cyan-600 text-white shadow'
+              : 'text-slate-400 hover:text-cyan-300'
+          }`}
+        >
+          <QrCode className="w-3 h-3" />
+          <span>Hızlı Karekod</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFormatFilter('barcode')}
+          className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+            formatFilter === 'barcode'
+              ? 'bg-indigo-600 text-white shadow'
+              : 'text-slate-400 hover:text-indigo-300'
+          }`}
+        >
+          <span>Sadece Barkod</span>
+        </button>
+      </div>
+
       {/* Seri Sayım Modunda Giriş/Çıkış Yön Seçici (+1/-1) */}
       {scannerMode === 'batch_count' && (
         <div className="z-10 mt-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl p-1 flex items-center justify-between gap-1.5 max-w-md mx-auto w-full">
@@ -613,7 +678,15 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         {/* Lazer Tarama Çizgisi Animasyonu */}
         {!cameraError && (
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className="w-[280px] h-[170px] border-2 border-emerald-500/80 rounded-xl relative shadow-[0_0_25px_rgba(16,185,129,0.25)]">
+            <div
+              className={`border-2 border-emerald-500/80 rounded-xl relative shadow-[0_0_25px_rgba(16,185,129,0.25)] transition-all duration-200 ${
+                formatFilter === 'qr'
+                  ? 'w-[240px] h-[240px]'
+                  : formatFilter === 'barcode'
+                  ? 'w-[280px] h-[170px]'
+                  : 'w-[260px] h-[240px]'
+              }`}
+            >
               {/* Köşe Vurguları */}
               <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-emerald-400" />
               <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-emerald-400" />
