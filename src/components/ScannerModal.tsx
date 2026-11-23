@@ -25,6 +25,7 @@ import { db } from '../db';
 import { Product, UnitType } from '../types';
 import { playSuccessBeep, playErrorBuzzer } from '../services/sound';
 import { canAddMoreProducts } from '../services/license';
+import { parseScannedCode } from '../services/barcodeParser';
 
 export type BatchOpType = 'in' | 'out';
 export type ScannerMode = 'single' | 'batch_count' | 'batch_add';
@@ -365,6 +366,11 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         }
       }
 
+      const qrAndUtsFormats = [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.DATA_MATRIX
+      ];
+
       const barcodeFormats = [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -376,10 +382,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
 
       const formatsToSupport =
         formatFilter === 'qr'
-          ? [Html5QrcodeSupportedFormats.QR_CODE]
+          ? qrAndUtsFormats
           : formatFilter === 'barcode'
           ? barcodeFormats
-          : [Html5QrcodeSupportedFormats.QR_CODE, ...barcodeFormats];
+          : [...qrAndUtsFormats, ...barcodeFormats];
 
       const html5QrCode = new Html5Qrcode(containerId, {
         formatsToSupport,
@@ -414,7 +420,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         },
         async (decodedText) => {
           const now = Date.now();
-          const cleanCode = decodedText.trim();
+          const parsed = parseScannedCode(decodedText);
+          const cleanCode = parsed.barcode;
 
           // Eğer kullanıcı şu anda yeni ürün adı yazıyorsa yeni barkod tetikleme
           if (quickAddRef.current) {
@@ -423,13 +430,13 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
 
           const currentMode = scannerModeRef.current;
 
-          // Seri modlarda debounce kontrolü
+          // Seri modlarda debounce kontrolü (aynı modelin farklı seri nolu ÜTS ürünlerini peş peşe okuyabilmek için rawKey kullanılır)
           if (currentMode !== 'single') {
-            if (lastScannedCodeRef.current === cleanCode && now - lastScanTimeRef.current < 1400) {
+            if (lastScannedCodeRef.current === parsed.rawKey && now - lastScanTimeRef.current < 1400) {
               return;
             }
             lastScanTimeRef.current = now;
-            lastScannedCodeRef.current = cleanCode;
+            lastScannedCodeRef.current = parsed.rawKey;
 
             if (currentMode === 'batch_add') {
               // Seri Yeni Ürün Girişi
@@ -624,7 +631,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           }`}
         >
           <QrCode className="w-3 h-3" />
-          <span>Hızlı Karekod</span>
+          <span>Karekod / ÜTS</span>
         </button>
 
         <button
